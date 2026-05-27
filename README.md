@@ -1,36 +1,51 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Khaban Board
+
+Khaban Board is a lightweight Jira-style project management app for small teams, startups, and freelancers. It includes a Kanban board, task CRUD, Google Sheets persistence through Apps Script, React DnD drag and drop, and Gemini-powered sprint suggestions.
 
 ## Getting Started
 
-First, run the development server:
+Install dependencies and run the development server:
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Environment Variables
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Create `.env.local` for local development:
 
-## Learn More
+```bash
+GEMINI_API_KEY=your_google_ai_studio_api_key
+NEXT_PUBLIC_KHABAN_API_URL=https://script.google.com/macros/s/AKfycbyIpZMeCpJOXR9oo1k-kdVCCN920-Rf_DM4_T_T-ctO7ljeeLEzTk-E8lgK-MhFOCmM/exec
+```
 
-To learn more about Next.js, take a look at the following resources:
+For Vercel, add the same variables in:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```text
+Project Settings > Environment Variables
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+`GEMINI_API_KEY` must be server-only. Do not prefix it with `NEXT_PUBLIC_`.
+
+## Gemini AI Assistance
+
+The dashboard has an `Ask Gemini` button. It sends the current task list to this server route:
+
+```text
+/api/ai/suggestions
+```
+
+That route calls Gemini with `GEMINI_API_KEY` and returns sprint focus, risks, and next actions.
 
 ## Deploy on Vercel
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Use:
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```text
+Framework: Next.js
+Root Directory: ./
+Production Branch: main
+```

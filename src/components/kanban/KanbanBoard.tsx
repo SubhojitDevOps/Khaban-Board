@@ -21,6 +21,8 @@ export function KanbanBoard() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isAiLoading, setIsAiLoading] = useState(false);
+  const [aiSuggestion, setAiSuggestion] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
@@ -185,6 +187,32 @@ export function KanbanBoard() {
     }
   }
 
+  async function generateAiSuggestion() {
+    setIsAiLoading(true);
+    setErrorMessage(null);
+
+    try {
+      const response = await fetch("/api/ai/suggestions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ tasks }),
+      });
+      const body = (await response.json()) as { ok: boolean; data?: { suggestion: string }; error?: string };
+
+      if (!body.ok || !body.data) {
+        throw new Error(body.error || "AI suggestion failed.");
+      }
+
+      setAiSuggestion(body.data.suggestion);
+    } catch (error) {
+      setErrorMessage(getErrorMessage(error));
+    } finally {
+      setIsAiLoading(false);
+    }
+  }
+
   return (
     <DndProvider backend={HTML5Backend}>
       <AppShell onCreateTask={openCreateModal}>
@@ -223,11 +251,25 @@ export function KanbanBoard() {
           </div>
         </section>
 
-        <section className="mb-5 flex flex-col gap-3 rounded-lg border border-emerald-300/15 bg-emerald-300/8 p-4 text-emerald-50 sm:flex-row sm:items-center">
-          <TrendingUp className="shrink-0" size={20} />
-          <p className="text-sm leading-6">
-            Connected to Google Sheets. Changes sync through the Apps Script API with optimistic board updates.
-          </p>
+        <section className="mb-5 flex flex-col gap-3 rounded-lg border border-emerald-300/15 bg-emerald-300/8 p-4 text-emerald-50 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex gap-3">
+            <TrendingUp className="mt-1 shrink-0" size={20} />
+            <div>
+              <p className="text-sm leading-6">
+                Connected to Google Sheets. Changes sync through the Apps Script API with optimistic board updates.
+              </p>
+              {aiSuggestion ? <p className="mt-2 whitespace-pre-line text-sm leading-6 text-emerald-100">{aiSuggestion}</p> : null}
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={generateAiSuggestion}
+            disabled={isAiLoading || isLoading}
+            className="inline-flex items-center justify-center gap-2 rounded-lg border border-emerald-200/20 px-3 py-2 text-sm font-semibold transition hover:bg-emerald-200/10 disabled:cursor-wait disabled:opacity-60"
+          >
+            {isAiLoading ? <Loader2 className="animate-spin" size={15} /> : <Bot size={15} />}
+            {isAiLoading ? "Thinking..." : "Ask Gemini"}
+          </button>
         </section>
 
           {errorMessage ? (
