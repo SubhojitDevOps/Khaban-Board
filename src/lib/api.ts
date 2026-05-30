@@ -1,9 +1,7 @@
 import type { Task, TaskDraft } from "@/types/task";
 import { AUTH_STORAGE_KEY, type AuthUser, type UserRole } from "@/components/auth/AuthProvider";
 
-const API_URL =
-  process.env.NEXT_PUBLIC_KHABAN_API_URL ||
-  "https://script.google.com/macros/s/AKfycbyIpZMeCpJOXR9oo1k-kdVCCN920-Rf_DM4_T_T-ctO7ljeeLEzTk-E8lgK-MhFOCmM/exec";
+const API_URL = process.env.NEXT_PUBLIC_KHABAN_API_URL;
 
 type ApiResponse<T> = {
   ok: boolean;
@@ -15,7 +13,8 @@ type ApiResponse<T> = {
 type BackendTask = Task;
 
 export async function fetchTasks() {
-  const response = await fetch(`${API_URL}?sessionToken=${encodeURIComponent(getSessionToken())}`, { cache: "no-store" });
+  const apiUrl = getApiUrl();
+  const response = await fetch(`${apiUrl}?sessionToken=${encodeURIComponent(getSessionToken())}`, { cache: "no-store" });
   return readResponse<BackendTask[]>(response);
 }
 
@@ -127,7 +126,7 @@ export function normalizeTask(task: BackendTask | Task): Task {
 }
 
 async function postJson<T>(payload: Record<string, unknown>) {
-  const response = await fetch(API_URL, {
+  const response = await fetch(getApiUrl(), {
     method: "POST",
     headers: {
       "Content-Type": "text/plain;charset=utf-8",
@@ -136,6 +135,14 @@ async function postJson<T>(payload: Record<string, unknown>) {
   });
 
   return readResponse<T>(response);
+}
+
+function getApiUrl() {
+  if (!API_URL) {
+    throw new Error("Backend API URL is not configured. Set NEXT_PUBLIC_KHABAN_API_URL in your environment.");
+  }
+
+  return API_URL;
 }
 
 async function readResponse<T>(response: Response) {
