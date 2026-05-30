@@ -1,4 +1,5 @@
 import type { Task, TaskDraft } from "@/types/task";
+import type { DemoUser, UserRole } from "@/components/auth/AuthProvider";
 
 const API_URL =
   process.env.NEXT_PUBLIC_KHABAN_API_URL ||
@@ -56,6 +57,31 @@ export async function deleteTask(id: string) {
     id,
   });
   return response;
+}
+
+export async function signupUser(user: DemoUser) {
+  return postJson<DemoUser & { id: string }>({
+    action: "signup",
+    name: user.name,
+    email: user.email,
+    role: user.role,
+  });
+}
+
+export async function loginUser(email: string) {
+  return postJson<DemoUser & { id: string }>({
+    action: "login",
+    email,
+  });
+}
+
+export async function updateUserRole(email: string, role: UserRole, name?: string) {
+  return postJson<DemoUser & { id: string }>({
+    action: "update-role",
+    email,
+    role,
+    name,
+  });
 }
 
 export function normalizeTask(task: BackendTask | Task): Task {

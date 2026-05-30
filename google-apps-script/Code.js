@@ -1,4 +1,5 @@
 const SHEET_NAME = "Tasks";
+const ROLES_SHEET_NAME = "Roles";
 const HEADERS = [
   "id",
   "title",
@@ -25,9 +26,17 @@ const HEADERS = [
 ];
 const VALID_STATUSES = ["TODO", "IN_PROGRESS", "DONE"];
 const VALID_PRIORITIES = ["Low", "Medium", "High", "Urgent"];
+const ROLE_HEADERS = ["id", "name", "email", "role", "createdAt", "updatedAt", "active"];
+const VALID_ROLES = ["Admin", "Manager", "Member", "Viewer"];
 
 function doGet(e) {
   try {
+    const resource = getParam(e, "resource");
+
+    if (resource === "roles") {
+      return jsonResponse({ ok: true, data: listRoles() });
+    }
+
     const id = getParam(e, "id");
     if (id) {
       const task = findTaskById(id);
@@ -43,7 +52,20 @@ function doGet(e) {
 function doPost(e) {
   try {
     const payload = parsePayload(e);
+    const action = String(payload.action || "").toLowerCase();
     const method = String(payload._method || getParam(e, "_method") || "POST").toUpperCase();
+
+    if (action === "signup") {
+      return jsonResponse({ ok: true, data: signupUser(payload) }, 201);
+    }
+
+    if (action === "login") {
+      return jsonResponse({ ok: true, data: loginUser(payload) });
+    }
+
+    if (action === "update-role") {
+      return jsonResponse({ ok: true, data: updateUserRole(payload) });
+    }
 
     if (method === "PUT") {
       return doPut(makeEventFromPayload(payload));
@@ -93,8 +115,78 @@ function doDelete(e) {
 
 function setupDatabase() {
   const sheet = getSheet();
+  const rolesSheet = getRolesSheet();
   ensureHeaders(sheet);
-  return jsonResponse({ ok: true, data: { sheetName: SHEET_NAME, headers: HEADERS } });
+  ensureRoleHeaders(rolesSheet);
+  return jsonResponse({ ok: true, data: { sheetName: SHEET_NAME, headers: HEADERS, rolesSheetName: ROLES_SHEET_NAME, roleHeaders: ROLE_HEADERS } });
+}
+
+function listRoles() {
+  const sheet = getRolesSheet();
+  const values = sheet.getDataRange().getValues();
+
+  if (values.length <= 1) {
+    return [];
+  }
+
+  return values.slice(1).filter(row => row[0]).map(rowToRole);
+}
+
+function signupUser(payload) {
+  const sheet = getRolesSheet();
+  const email = normalizeEmail(payload.email);
+  const existing = findRoleByEmail(email);
+
+  if (existing) {
+    throw new Error("An account already exists for this email");
+  }
+
+  const now = new Date().toISOString();
+  const user = {
+    id: Utilities.getUuid(),
+    name: normalizeText(payload.name) || "Khaban User",
+    email,
+    role: normalizeRole(payload.role || "Member"),
+    createdAt: now,
+    updatedAt: now,
+    active: true,
+  };
+
+  sheet.appendRow(roleToRow(user));
+  return user;
+}
+
+function loginUser(payload) {
+  const email = normalizeEmail(payload.email);
+  const user = findRoleByEmail(email);
+
+  if (!user || !normalizeBoolean(user.active)) {
+    throw new Error("No active account found for this email");
+  }
+
+  return user;
+}
+
+function updateUserRole(payload) {
+  const email = normalizeEmail(payload.email);
+  const sheet = getRolesSheet();
+  const rowIndex = findRoleRowIndexByEmail(sheet, email);
+
+  if (rowIndex === -1) {
+    throw new Error("Account not found");
+  }
+
+  const existing = rowToRole(sheet.getRange(rowIndex, 1, 1, ROLE_HEADERS.length).getValues()[0]);
+  const updated = {
+    ...existing,
+    name: payload.name === undefined ? existing.name : normalizeText(payload.name),
+    role: payload.role === undefined ? existing.role : normalizeRole(payload.role),
+    active: payload.active === undefined ? existing.active : normalizeBoolean(payload.active),
+    updatedAt: new Date().toISOString(),
+  };
+
+  sheet.getRange(rowIndex, 1, 1, ROLE_HEADERS.length).setValues([roleToRow(updated)]);
+  return updated;
 }
 
 function listTasks() {
@@ -311,6 +403,19 @@ function getSheet() {
   return sheet;
 }
 
+function getRolesSheet() {
+  const spreadsheetId = PropertiesService.getScriptProperties().getProperty("SPREADSHEET_ID");
+  const spreadsheet = spreadsheetId ? SpreadsheetApp.openById(spreadsheetId) : SpreadsheetApp.getActiveSpreadsheet();
+
+  if (!spreadsheet) {
+    throw new Error("No spreadsheet found. Bind this script to a Sheet or set SPREADSHEET_ID in Script Properties.");
+  }
+
+  const sheet = spreadsheet.getSheetByName(ROLES_SHEET_NAME) || spreadsheet.insertSheet(ROLES_SHEET_NAME);
+  ensureRoleHeaders(sheet);
+  return sheet;
+}
+
 function ensureHeaders(sheet) {
   const range = sheet.getRange(1, 1, 1, HEADERS.length);
   const existing = range.getValues()[0];
@@ -318,6 +423,17 @@ function ensureHeaders(sheet) {
 
   if (!matches) {
     range.setValues([HEADERS]);
+    sheet.setFrozenRows(1);
+  }
+}
+
+function ensureRoleHeaders(sheet) {
+  const range = sheet.getRange(1, 1, 1, ROLE_HEADERS.length);
+  const existing = range.getValues()[0];
+  const matches = ROLE_HEADERS.every((header, index) => existing[index] === header);
+
+  if (!matches) {
+    range.setValues([ROLE_HEADERS]);
     sheet.setFrozenRows(1);
   }
 }
@@ -331,6 +447,22 @@ function findRowIndexById(sheet, id) {
 
   const ids = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
   const index = ids.findIndex(row => row[0] === id);
+  return index === -1 ? -1 : index + 2;
+}
+
+function findRoleByEmail(email) {
+  return listRoles().find(user => String(user.email).toLowerCase() === email.toLowerCase()) || null;
+}
+
+function findRoleRowIndexByEmail(sheet, email) {
+  const lastRow = sheet.getLastRow();
+
+  if (lastRow <= 1) {
+    return -1;
+  }
+
+  const emails = sheet.getRange(2, 3, lastRow - 1, 1).getValues();
+  const index = emails.findIndex(row => String(row[0]).toLowerCase() === email.toLowerCase());
   return index === -1 ? -1 : index + 2;
 }
 
@@ -366,8 +498,19 @@ function rowToTask(row) {
   }, {});
 }
 
+function rowToRole(row) {
+  return ROLE_HEADERS.reduce((user, header, index) => {
+    user[header] = row[index];
+    return user;
+  }, {});
+}
+
 function taskToRow(task) {
   return HEADERS.map(header => task[header] === undefined || task[header] === null ? "" : task[header]);
+}
+
+function roleToRow(user) {
+  return ROLE_HEADERS.map(header => user[header] === undefined || user[header] === null ? "" : user[header]);
 }
 
 function validateTaskPayload(payload, requireTitle) {
@@ -394,6 +537,16 @@ function normalizePriority(priority) {
 
   if (!VALID_PRIORITIES.includes(value)) {
     throw new Error(`Invalid priority. Use one of: ${VALID_PRIORITIES.join(", ")}`);
+  }
+
+  return value;
+}
+
+function normalizeRole(role) {
+  const value = String(role || "Member").trim();
+
+  if (!VALID_ROLES.includes(value)) {
+    throw new Error(`Invalid role. Use one of: ${VALID_ROLES.join(", ")}`);
   }
 
   return value;

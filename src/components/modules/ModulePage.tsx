@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import {
   Bell,
   Bot,
@@ -14,6 +15,7 @@ import {
 import { AppShell } from "@/components/layout/AppShell";
 import { useAuth, type UserRole } from "@/components/auth/AuthProvider";
 import { useTasks } from "@/lib/useTasks";
+import { updateUserRole } from "@/lib/api";
 import type { Task } from "@/types/task";
 
 type ModuleKey = "issues" | "roadmap" | "team" | "insights" | "notifications" | "settings";
@@ -274,6 +276,22 @@ function NotificationsView({ tasks }: { tasks: Task[] }) {
 
 function SettingsView({ tasks }: { tasks: Task[] }) {
   const { user, updateUser } = useAuth();
+  const [isSavingRole, setIsSavingRole] = useState(false);
+
+  async function saveRole(role: UserRole) {
+    if (!user) {
+      return;
+    }
+
+    setIsSavingRole(true);
+
+    try {
+      const updated = await updateUserRole(user.email, role, user.name);
+      updateUser({ name: updated.name, email: updated.email, role: updated.role });
+    } finally {
+      setIsSavingRole(false);
+    }
+  }
 
   return (
     <div className="grid gap-5 xl:grid-cols-[1fr_340px]">
@@ -292,7 +310,8 @@ function SettingsView({ tasks }: { tasks: Task[] }) {
             Role access
             <select
               value={user?.role || "Viewer"}
-              onChange={(event) => user && updateUser({ ...user, role: event.target.value as UserRole })}
+              onChange={(event) => void saveRole(event.target.value as UserRole)}
+              disabled={isSavingRole}
               className="rounded-lg border border-white/10 bg-slate-900 px-3 py-3 text-slate-100 outline-none transition focus:border-cyan-300/50"
             >
               {roles.map((role) => (

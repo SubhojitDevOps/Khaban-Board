@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { ArrowRight, ShieldCheck, Sparkles } from "lucide-react";
+import { ArrowRight, Loader2, ShieldCheck, Sparkles } from "lucide-react";
 import { useAuth, type UserRole } from "@/components/auth/AuthProvider";
+import { loginUser, signupUser } from "@/lib/api";
 
 const roles: UserRole[] = ["Admin", "Manager", "Member", "Viewer"];
 
@@ -12,14 +13,34 @@ export function AuthScreen() {
   const [name, setName] = useState("Subhojit");
   const [email, setEmail] = useState("subhojit@example.com");
   const [role, setRole] = useState<UserRole>("Admin");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  function submit(event: React.FormEvent<HTMLFormElement>) {
+  async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    login({
-      name: name.trim() || "Khaban User",
-      email: email.trim() || "member@khaban.local",
-      role,
-    });
+    setIsSubmitting(true);
+    setErrorMessage(null);
+
+    try {
+      const normalizedEmail = email.trim();
+      const user = mode === "signup"
+        ? await signupUser({
+            name: name.trim() || "Khaban User",
+            email: normalizedEmail,
+            role,
+          })
+        : await loginUser(normalizedEmail);
+
+      login({
+        name: user.name,
+        email: user.email,
+        role: user.role,
+      });
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Authentication failed.");
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   return (
@@ -73,6 +94,7 @@ export function AuthScreen() {
             <select
               value={role}
               onChange={(event) => setRole(event.target.value as UserRole)}
+              disabled={mode === "login"}
               className="rounded-lg border border-white/10 bg-slate-900 px-3 py-3 text-slate-100 outline-none transition focus:border-cyan-300/50"
             >
               {roles.map((roleOption) => (
@@ -81,6 +103,12 @@ export function AuthScreen() {
             </select>
           </label>
         </div>
+
+        {errorMessage ? (
+          <p className="mt-4 rounded-lg border border-rose-400/25 bg-rose-400/10 p-3 text-sm leading-6 text-rose-100">
+            {errorMessage}
+          </p>
+        ) : null}
 
         <div className="mt-5 rounded-lg border border-cyan-300/15 bg-cyan-300/8 p-3 text-sm leading-6 text-cyan-50">
           <div className="mb-1 flex items-center gap-2 font-semibold">
@@ -92,10 +120,11 @@ export function AuthScreen() {
 
         <button
           type="submit"
-          className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-cyan-300 px-4 py-3 text-sm font-semibold text-slate-950 transition hover:bg-cyan-200"
+          disabled={isSubmitting}
+          className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-cyan-300 px-4 py-3 text-sm font-semibold text-slate-950 transition hover:bg-cyan-200 disabled:cursor-wait disabled:opacity-70"
         >
-          Continue
-          <ArrowRight size={17} />
+          {isSubmitting ? <Loader2 className="animate-spin" size={17} /> : <ArrowRight size={17} />}
+          {isSubmitting ? "Checking workspace..." : "Continue"}
         </button>
       </form>
     </main>

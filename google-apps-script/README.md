@@ -12,6 +12,18 @@ Columns:
 id, title, description, status, priority, createdAt, updatedAt, parentId, owner, dueDate, aiHint, labels, project, sprint, estimate, blocked, blockerReason, createdBy, updatedBy, ownerEmail, lastReminderAt, reminderCount
 ```
 
+Roles sheet name: `Roles`
+
+```text
+id, name, email, role, createdAt, updatedAt, active
+```
+
+Allowed roles:
+
+```text
+Admin, Manager, Member, Viewer
+```
+
 Allowed statuses:
 
 ```text
@@ -43,6 +55,36 @@ SPREADSHEET_ID=<your-google-sheet-id>
 ## API
 
 Apps Script web apps directly support `GET` and `POST`. The code includes `doPut` and `doDelete`, but for web-app calls use `_method` override through `POST`.
+
+### Sign up user
+
+```bash
+curl -X POST "YOUR_WEB_APP_URL" \
+  -H "Content-Type: application/json" \
+  -d '{"action":"signup","name":"Subho","email":"subho@example.com","role":"Admin"}'
+```
+
+### Login user
+
+```bash
+curl -X POST "YOUR_WEB_APP_URL" \
+  -H "Content-Type: application/json" \
+  -d '{"action":"login","email":"subho@example.com"}'
+```
+
+### Update role
+
+```bash
+curl -X POST "YOUR_WEB_APP_URL" \
+  -H "Content-Type: application/json" \
+  -d '{"action":"update-role","email":"subho@example.com","role":"Manager"}'
+```
+
+### List roles
+
+```bash
+curl "YOUR_WEB_APP_URL?resource=roles"
+```
 
 ### List tasks
 
