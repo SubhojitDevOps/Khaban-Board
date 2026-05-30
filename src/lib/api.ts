@@ -1,5 +1,5 @@
 import type { Task, TaskDraft } from "@/types/task";
-import type { DemoUser, UserRole } from "@/components/auth/AuthProvider";
+import { AUTH_STORAGE_KEY, type AuthUser, type UserRole } from "@/components/auth/AuthProvider";
 
 const API_URL =
   process.env.NEXT_PUBLIC_KHABAN_API_URL ||
@@ -15,12 +15,13 @@ type ApiResponse<T> = {
 type BackendTask = Task;
 
 export async function fetchTasks() {
-  const response = await fetch(API_URL, { cache: "no-store" });
+  const response = await fetch(`${API_URL}?sessionToken=${encodeURIComponent(getSessionToken())}`, { cache: "no-store" });
   return readResponse<BackendTask[]>(response);
 }
 
 export async function createTask(task: TaskDraft) {
   const response = await postJson<BackendTask>({
+    sessionToken: getSessionToken(),
     title: task.title,
     description: task.description,
     status: task.status,
@@ -44,6 +45,7 @@ export async function createTask(task: TaskDraft) {
 
 export async function updateTask(id: string, task: Partial<TaskDraft>) {
   const response = await postJson<BackendTask>({
+    sessionToken: getSessionToken(),
     _method: "PUT",
     id,
     ...task,
@@ -53,35 +55,64 @@ export async function updateTask(id: string, task: Partial<TaskDraft>) {
 
 export async function deleteTask(id: string) {
   const response = await postJson<{ id: string }>({
+    sessionToken: getSessionToken(),
     _method: "DELETE",
     id,
   });
   return response;
 }
 
-export async function signupUser(user: DemoUser) {
-  return postJson<DemoUser & { id: string }>({
+export async function signupUser(user: Pick<AuthUser, "name" | "email">, password: string) {
+  return postJson<AuthUser & { id: string }>({
     action: "signup",
     name: user.name,
     email: user.email,
-    role: user.role,
+    password,
   });
 }
 
-export async function loginUser(email: string) {
-  return postJson<DemoUser & { id: string }>({
+export async function loginUser(email: string, password: string) {
+  return postJson<AuthUser & { id: string }>({
     action: "login",
     email,
+    password,
+  });
+}
+
+export async function logoutUser() {
+  return postJson<{ email: string }>({
+    action: "logout",
+    sessionToken: getSessionToken(),
   });
 }
 
 export async function updateUserRole(email: string, role: UserRole, name?: string) {
-  return postJson<DemoUser & { id: string }>({
+  return postJson<Partial<AuthUser> & { id: string }>({
     action: "update-role",
+    sessionToken: getSessionToken(),
     email,
     role,
     name,
   });
+}
+
+function getSessionToken() {
+  if (typeof window === "undefined") {
+    return "";
+  }
+
+  const storedUser = window.localStorage.getItem(AUTH_STORAGE_KEY);
+
+  if (!storedUser) {
+    return "";
+  }
+
+  try {
+    return (JSON.parse(storedUser) as AuthUser).sessionToken || "";
+  } catch {
+    window.localStorage.removeItem(AUTH_STORAGE_KEY);
+    return "";
+  }
 }
 
 export function normalizeTask(task: BackendTask | Task): Task {

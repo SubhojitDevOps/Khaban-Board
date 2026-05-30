@@ -2,17 +2,15 @@
 
 import { useState } from "react";
 import { ArrowRight, Loader2, ShieldCheck, Sparkles } from "lucide-react";
-import { useAuth, type UserRole } from "@/components/auth/AuthProvider";
+import { useAuth } from "@/components/auth/AuthProvider";
 import { loginUser, signupUser } from "@/lib/api";
-
-const roles: UserRole[] = ["Admin", "Manager", "Member", "Viewer"];
 
 export function AuthScreen() {
   const { login } = useAuth();
   const [mode, setMode] = useState<"login" | "signup">("login");
-  const [name, setName] = useState("Subhojit");
-  const [email, setEmail] = useState("subhojit@example.com");
-  const [role, setRole] = useState<UserRole>("Admin");
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -25,16 +23,16 @@ export function AuthScreen() {
       const normalizedEmail = email.trim();
       const user = mode === "signup"
         ? await signupUser({
-            name: name.trim() || "Khaban User",
+            name: name.trim(),
             email: normalizedEmail,
-            role,
-          })
-        : await loginUser(normalizedEmail);
+          }, password)
+        : await loginUser(normalizedEmail, password);
 
       login({
         name: user.name,
         email: user.email,
         role: user.role,
+        sessionToken: user.sessionToken,
       });
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "Authentication failed.");
@@ -72,35 +70,37 @@ export function AuthScreen() {
         </div>
 
         <div className="grid gap-4">
-          <label className="grid gap-2 text-sm font-medium text-slate-300">
-            Name
-            <input
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-              className="rounded-lg border border-white/10 bg-white/[0.04] px-3 py-3 text-slate-100 outline-none transition focus:border-cyan-300/50"
-            />
-          </label>
+          {mode === "signup" ? (
+            <label className="grid gap-2 text-sm font-medium text-slate-300">
+              Name
+              <input
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                required
+                className="rounded-lg border border-white/10 bg-white/[0.04] px-3 py-3 text-slate-100 outline-none transition focus:border-cyan-300/50"
+              />
+            </label>
+          ) : null}
           <label className="grid gap-2 text-sm font-medium text-slate-300">
             Email
             <input
               type="email"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
+              required
               className="rounded-lg border border-white/10 bg-white/[0.04] px-3 py-3 text-slate-100 outline-none transition focus:border-cyan-300/50"
             />
           </label>
           <label className="grid gap-2 text-sm font-medium text-slate-300">
-            Workspace role
-            <select
-              value={role}
-              onChange={(event) => setRole(event.target.value as UserRole)}
-              disabled={mode === "login"}
-              className="rounded-lg border border-white/10 bg-slate-900 px-3 py-3 text-slate-100 outline-none transition focus:border-cyan-300/50"
-            >
-              {roles.map((roleOption) => (
-                <option key={roleOption}>{roleOption}</option>
-              ))}
-            </select>
+            Password
+            <input
+              type="password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              minLength={8}
+              required
+              className="rounded-lg border border-white/10 bg-white/[0.04] px-3 py-3 text-slate-100 outline-none transition focus:border-cyan-300/50"
+            />
           </label>
         </div>
 
@@ -113,9 +113,9 @@ export function AuthScreen() {
         <div className="mt-5 rounded-lg border border-cyan-300/15 bg-cyan-300/8 p-3 text-sm leading-6 text-cyan-50">
           <div className="mb-1 flex items-center gap-2 font-semibold">
             <ShieldCheck size={15} />
-            Demo role access
+            Workspace access
           </div>
-          Admin sees everything. Managers manage team and planning. Members work tickets. Viewers can only inspect.
+          New accounts start as Members. Workspace administrators can update access in the Roles sheet.
         </div>
 
         <button

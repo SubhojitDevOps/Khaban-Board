@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import {
   Bell,
   Bot,
@@ -15,7 +14,6 @@ import {
 import { AppShell } from "@/components/layout/AppShell";
 import { useAuth, type UserRole } from "@/components/auth/AuthProvider";
 import { useTasks } from "@/lib/useTasks";
-import { updateUserRole } from "@/lib/api";
 import type { Task } from "@/types/task";
 
 type ModuleKey = "issues" | "roadmap" | "team" | "insights" | "notifications" | "settings";
@@ -54,7 +52,7 @@ const moduleMeta: Record<ModuleKey, { title: string; eyebrow: string; descriptio
   settings: {
     title: "Settings",
     eyebrow: "Workspace configuration",
-    description: "Manage demo role access, connected services, and workflow defaults.",
+    description: "Review workspace access, connected services, and workflow configuration.",
     icon: Settings,
   },
 };
@@ -275,23 +273,7 @@ function NotificationsView({ tasks }: { tasks: Task[] }) {
 }
 
 function SettingsView({ tasks }: { tasks: Task[] }) {
-  const { user, updateUser } = useAuth();
-  const [isSavingRole, setIsSavingRole] = useState(false);
-
-  async function saveRole(role: UserRole) {
-    if (!user) {
-      return;
-    }
-
-    setIsSavingRole(true);
-
-    try {
-      const updated = await updateUserRole(user.email, role, user.name);
-      updateUser({ name: updated.name, email: updated.email, role: updated.role });
-    } finally {
-      setIsSavingRole(false);
-    }
-  }
+  const { user } = useAuth();
 
   return (
     <div className="grid gap-5 xl:grid-cols-[1fr_340px]">
@@ -302,26 +284,21 @@ function SettingsView({ tasks }: { tasks: Task[] }) {
             Display name
             <input
               value={user?.name || ""}
-              onChange={(event) => user && updateUser({ ...user, name: event.target.value })}
-              className="rounded-lg border border-white/10 bg-white/[0.04] px-3 py-3 text-slate-100 outline-none transition focus:border-cyan-300/50"
+              readOnly
+              className="rounded-lg border border-white/10 bg-white/[0.04] px-3 py-3 text-slate-400 outline-none"
             />
           </label>
           <label className="grid gap-2 text-sm font-medium text-slate-300">
             Role access
-            <select
+            <input
               value={user?.role || "Viewer"}
-              onChange={(event) => void saveRole(event.target.value as UserRole)}
-              disabled={isSavingRole}
-              className="rounded-lg border border-white/10 bg-slate-900 px-3 py-3 text-slate-100 outline-none transition focus:border-cyan-300/50"
-            >
-              {roles.map((role) => (
-                <option key={role}>{role}</option>
-              ))}
-            </select>
+              readOnly
+              className="rounded-lg border border-white/10 bg-white/[0.04] px-3 py-3 text-slate-400 outline-none"
+            />
           </label>
         </div>
         <div className="mt-5 grid gap-3 md:grid-cols-3">
-          <InsightCard title="Auth mode" value="Demo" />
+          <InsightCard title="Auth mode" value="Session" />
           <InsightCard title="Database" value="Sheets" />
           <InsightCard title="AI" value="Gemini" />
         </div>

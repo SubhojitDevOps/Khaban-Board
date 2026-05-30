@@ -26,15 +26,17 @@ const HEADERS = [
 ];
 const VALID_STATUSES = ["TODO", "IN_PROGRESS", "DONE"];
 const VALID_PRIORITIES = ["Low", "Medium", "High", "Urgent"];
-const ROLE_HEADERS = ["id", "name", "email", "role", "createdAt", "updatedAt", "active"];
+const ROLE_HEADERS = ["id", "name", "email", "role", "passwordHash", "passwordSalt", "sessionToken", "sessionExpiresAt", "createdAt", "updatedAt", "active"];
 const VALID_ROLES = ["Admin", "Manager", "Member", "Viewer"];
 
 function doGet(e) {
   try {
     const resource = getParam(e, "resource");
+    const user = requireSession(getParam(e, "sessionToken"));
 
     if (resource === "roles") {
-      return jsonResponse({ ok: true, data: listRoles() });
+      requireAdmin(user);
+      return jsonResponse({ ok: true, data: listRoles().map(user => publicUser(user)) });
     }
 
     const id = getParam(e, "id");
@@ -63,9 +65,15 @@ function doPost(e) {
       return jsonResponse({ ok: true, data: loginUser(payload) });
     }
 
+    if (action === "logout") {
+      return jsonResponse({ ok: true, data: logoutUser(payload) });
+    }
+
     if (action === "update-role") {
       return jsonResponse({ ok: true, data: updateUserRole(payload) });
     }
+
+    const user = requireSession(payload.sessionToken);
 
     if (method === "PUT") {
       return doPut(makeEventFromPayload(payload));
@@ -75,6 +83,7 @@ function doPost(e) {
       return doDelete(makeEventFromPayload(payload));
     }
 
+    requireTaskWriteAccess(user);
     return jsonResponse({ ok: true, data: createTask(payload) }, 201);
   } catch (error) {
     return errorResponse(error);
@@ -84,6 +93,7 @@ function doPost(e) {
 function doPut(e) {
   try {
     const payload = parsePayload(e);
+    requireTaskWriteAccess(requireSession(payload.sessionToken || getParam(e, "sessionToken")));
     const id = payload.id || getParam(e, "id");
 
     if (!id) {
@@ -100,6 +110,7 @@ function doPut(e) {
 function doDelete(e) {
   try {
     const payload = parsePayload(e);
+    requireTaskWriteAccess(requireSession(payload.sessionToken || getParam(e, "sessionToken")));
     const id = payload.id || getParam(e, "id");
 
     if (!id) {
@@ -121,6 +132,38 @@ function setupDatabase() {
   return jsonResponse({ ok: true, data: { sheetName: SHEET_NAME, headers: HEADERS, rolesSheetName: ROLES_SHEET_NAME, roleHeaders: ROLE_HEADERS } });
 }
 
+function createInitialAdmin() {
+  const properties = PropertiesService.getScriptProperties();
+  const email = normalizeEmail(properties.getProperty("INITIAL_ADMIN_EMAIL"));
+  const password = properties.getProperty("INITIAL_ADMIN_PASSWORD");
+  const existing = findRoleByEmail(email);
+
+  if (existing) {
+    throw new Error("Initial admin already exists");
+  }
+
+  const sheet = getRolesSheet();
+  const now = new Date().toISOString();
+  const passwordSalt = createSessionToken();
+  const user = {
+    id: Utilities.getUuid(),
+    name: normalizeText(properties.getProperty("INITIAL_ADMIN_NAME")) || "Workspace Admin",
+    email,
+    role: "Admin",
+    passwordHash: hashPassword(password, passwordSalt),
+    passwordSalt,
+    sessionToken: "",
+    sessionExpiresAt: "",
+    createdAt: now,
+    updatedAt: now,
+    active: true,
+  };
+
+  sheet.appendRow(roleToRow(user));
+  properties.deleteProperty("INITIAL_ADMIN_PASSWORD");
+  return jsonResponse({ ok: true, data: publicUser(user) }, 201);
+}
+
 function listRoles() {
   const sheet = getRolesSheet();
   const values = sheet.getDataRange().getValues();
@@ -135,39 +178,54 @@ function listRoles() {
 function signupUser(payload) {
   const sheet = getRolesSheet();
   const email = normalizeEmail(payload.email);
+  const name = normalizeText(payload.name);
   const existing = findRoleByEmail(email);
 
   if (existing) {
     throw new Error("An account already exists for this email");
   }
 
+  if (!name) {
+    throw new Error("Name is required");
+  }
+
   const now = new Date().toISOString();
+  const passwordSalt = createSessionToken();
   const user = {
     id: Utilities.getUuid(),
-    name: normalizeText(payload.name) || "Khaban User",
+    name,
     email,
-    role: normalizeRole(payload.role || "Member"),
+    role: "Member",
+    passwordHash: hashPassword(payload.password, passwordSalt),
+    passwordSalt,
+    sessionToken: createSessionToken(),
+    sessionExpiresAt: createSessionExpiry(),
     createdAt: now,
     updatedAt: now,
     active: true,
   };
 
   sheet.appendRow(roleToRow(user));
-  return user;
+  return publicUser(user, true);
 }
 
 function loginUser(payload) {
   const email = normalizeEmail(payload.email);
   const user = findRoleByEmail(email);
 
-  if (!user || !normalizeBoolean(user.active)) {
-    throw new Error("No active account found for this email");
+  if (!user || !normalizeBoolean(user.active) || user.passwordHash !== hashPassword(payload.password, user.passwordSalt)) {
+    throw new Error("Invalid email or password");
   }
 
-  return user;
+  const sheet = getRolesSheet();
+  const rowIndex = findRoleRowIndexByEmail(sheet, email);
+  const updated = { ...user, sessionToken: createSessionToken(), sessionExpiresAt: createSessionExpiry(), updatedAt: new Date().toISOString() };
+  sheet.getRange(rowIndex, 1, 1, ROLE_HEADERS.length).setValues([roleToRow(updated)]);
+  return publicUser(updated, true);
 }
 
 function updateUserRole(payload) {
+  requireAdmin(requireSession(payload.sessionToken));
   const email = normalizeEmail(payload.email);
   const sheet = getRolesSheet();
   const rowIndex = findRoleRowIndexByEmail(sheet, email);
@@ -186,7 +244,16 @@ function updateUserRole(payload) {
   };
 
   sheet.getRange(rowIndex, 1, 1, ROLE_HEADERS.length).setValues([roleToRow(updated)]);
-  return updated;
+  return publicUser(updated);
+}
+
+function logoutUser(payload) {
+  const user = requireSession(payload.sessionToken);
+  const sheet = getRolesSheet();
+  const rowIndex = findRoleRowIndexByEmail(sheet, user.email);
+  const updated = { ...user, sessionToken: "", sessionExpiresAt: "", updatedAt: new Date().toISOString() };
+  sheet.getRange(rowIndex, 1, 1, ROLE_HEADERS.length).setValues([roleToRow(updated)]);
+  return { email: user.email };
 }
 
 function listTasks() {
@@ -552,6 +619,69 @@ function normalizeRole(role) {
   return value;
 }
 
+function requireSession(sessionToken) {
+  const token = normalizeText(sessionToken);
+
+  if (!token) {
+    throw new Error("Authentication required");
+  }
+
+  const user = listRoles().find(candidate =>
+    candidate.sessionToken === token &&
+    normalizeBoolean(candidate.active) &&
+    candidate.sessionExpiresAt &&
+    new Date(candidate.sessionExpiresAt).getTime() > Date.now()
+  );
+
+  if (!user) {
+    throw new Error("Invalid or expired session");
+  }
+
+  return user;
+}
+
+function requireAdmin(user) {
+  if (!user || user.role !== "Admin") {
+    throw new Error("Admin access required");
+  }
+}
+
+function requireTaskWriteAccess(user) {
+  if (!user || !["Admin", "Manager", "Member"].includes(user.role)) {
+    throw new Error("Task write access required");
+  }
+}
+
+function createSessionToken() {
+  return Utilities.getUuid() + Utilities.getUuid();
+}
+
+function createSessionExpiry() {
+  return new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+}
+
+function hashPassword(password, salt) {
+  const value = String(password || "");
+
+  if (value.length < 8) {
+    throw new Error("Password must be at least 8 characters");
+  }
+
+  const digest = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, `${String(salt || "")}:${value}`);
+  return digest.map(byte => (`0${(byte & 0xFF).toString(16)}`).slice(-2)).join("");
+}
+
+function publicUser(user, includeSessionToken) {
+  return {
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    role: user.role,
+    active: normalizeBoolean(user.active),
+    sessionToken: includeSessionToken ? user.sessionToken : undefined,
+  };
+}
+
 function normalizeParentId(parentId, taskId) {
   const value = String(parentId || "").trim();
 
@@ -574,7 +704,7 @@ function normalizeEmail(value) {
   }
 
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    throw new Error("Invalid ownerEmail");
+    throw new Error("Invalid email address");
   }
 
   return email;

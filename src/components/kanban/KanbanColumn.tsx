@@ -17,16 +17,17 @@ type KanbanColumnProps = {
   accent: string;
   tasks: Task[];
   allTasks: Task[];
+  canEdit: boolean;
   onMoveTask: (taskId: string, status: TaskStatus) => void;
   onEdit: (task: Task) => void;
   onDelete: (id: string) => void;
 };
 
-export function KanbanColumn({ id, label, accent, tasks, allTasks, onMoveTask, onEdit, onDelete }: KanbanColumnProps) {
+export function KanbanColumn({ id, label, accent, tasks, allTasks, canEdit, onMoveTask, onEdit, onDelete }: KanbanColumnProps) {
   const [{ isOver, canDrop }, drop] = useDrop(
     () => ({
       accept: DND_ITEM_TYPES.TASK,
-      canDrop: (item: DragTask) => item.status !== id,
+      canDrop: (item: DragTask) => canEdit && item.status !== id,
       drop: (item: DragTask) => {
         onMoveTask(item.id, id);
       },
@@ -35,7 +36,7 @@ export function KanbanColumn({ id, label, accent, tasks, allTasks, onMoveTask, o
         canDrop: monitor.canDrop(),
       }),
     }),
-    [id, onMoveTask],
+    [canEdit, id, onMoveTask],
   );
 
   const setDropRef = useCallback(
@@ -71,6 +72,7 @@ export function KanbanColumn({ id, label, accent, tasks, allTasks, onMoveTask, o
             task={task}
             parentTitle={allTasks.find((candidate) => candidate.id === task.parentId)?.title}
             childCount={allTasks.filter((candidate) => candidate.parentId === task.id).length}
+            canEdit={canEdit}
             onEdit={onEdit}
             onDelete={onDelete}
           />

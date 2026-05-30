@@ -15,7 +15,7 @@ id, title, description, status, priority, createdAt, updatedAt, parentId, owner,
 Roles sheet name: `Roles`
 
 ```text
-id, name, email, role, createdAt, updatedAt, active
+id, name, email, role, passwordHash, passwordSalt, sessionToken, sessionExpiresAt, createdAt, updatedAt, active
 ```
 
 Allowed roles:
@@ -43,8 +43,19 @@ Low, Medium, High, Urgent
 3. Add `Code.js` from this folder.
 4. Add the settings from `appsscript.json` to the Apps Script manifest.
 5. Run `setupDatabase` once from the Apps Script editor.
-6. Deploy as `Web app`.
-7. Set access to whatever your MVP needs, usually `Anyone` for a hackathon demo.
+6. Add Script Properties for the first administrator:
+
+```text
+INITIAL_ADMIN_NAME=Your Name
+INITIAL_ADMIN_EMAIL=you@example.com
+INITIAL_ADMIN_PASSWORD=replace-with-a-strong-password
+```
+
+7. Run `createInitialAdmin` once from the Apps Script editor.
+8. Deploy as `Web app`.
+9. Set web app access to `Anyone`. Application-level authentication is enforced with password hashes and session tokens.
+
+When upgrading an older Khaban Board deployment, recreate the `Roles` sheet before running `setupDatabase`. Existing accounts used the earlier demo schema and cannot be migrated because they did not have passwords.
 
 If this script is not bound to the Sheet, set Script Property:
 
@@ -61,7 +72,7 @@ Apps Script web apps directly support `GET` and `POST`. The code includes `doPut
 ```bash
 curl -X POST "YOUR_WEB_APP_URL" \
   -H "Content-Type: application/json" \
-  -d '{"action":"signup","name":"Subho","email":"subho@example.com","role":"Admin"}'
+  -d '{"action":"signup","name":"Subho","email":"subho@example.com","password":"replace-with-strong-password"}'
 ```
 
 ### Login user
@@ -69,7 +80,7 @@ curl -X POST "YOUR_WEB_APP_URL" \
 ```bash
 curl -X POST "YOUR_WEB_APP_URL" \
   -H "Content-Type: application/json" \
-  -d '{"action":"login","email":"subho@example.com"}'
+  -d '{"action":"login","email":"subho@example.com","password":"replace-with-strong-password"}'
 ```
 
 ### Update role
@@ -77,25 +88,25 @@ curl -X POST "YOUR_WEB_APP_URL" \
 ```bash
 curl -X POST "YOUR_WEB_APP_URL" \
   -H "Content-Type: application/json" \
-  -d '{"action":"update-role","email":"subho@example.com","role":"Manager"}'
+  -d '{"action":"update-role","sessionToken":"ADMIN_SESSION_TOKEN","email":"subho@example.com","role":"Manager"}'
 ```
 
 ### List roles
 
 ```bash
-curl "YOUR_WEB_APP_URL?resource=roles"
+curl "YOUR_WEB_APP_URL?resource=roles&sessionToken=ADMIN_SESSION_TOKEN"
 ```
 
 ### List tasks
 
 ```bash
-curl "YOUR_WEB_APP_URL"
+curl "YOUR_WEB_APP_URL?sessionToken=SESSION_TOKEN"
 ```
 
 ### Get one task
 
 ```bash
-curl "YOUR_WEB_APP_URL?id=TASK_ID"
+curl "YOUR_WEB_APP_URL?id=TASK_ID&sessionToken=SESSION_TOKEN"
 ```
 
 ### Create task
@@ -103,7 +114,7 @@ curl "YOUR_WEB_APP_URL?id=TASK_ID"
 ```bash
 curl -X POST "YOUR_WEB_APP_URL" \
   -H "Content-Type: application/json" \
-  -d '{"title":"Build API","description":"Create Sheets backend","status":"TODO","priority":"High","owner":"Subho","ownerEmail":"subho@example.com","dueDate":"2026-06-01","labels":"api,backend","project":"Khaban MVP","sprint":"Sprint 1","estimate":"3 pts","blocked":false}'
+  -d '{"sessionToken":"SESSION_TOKEN","title":"Build API","description":"Create Sheets backend","status":"TODO","priority":"High","owner":"Subho","ownerEmail":"subho@example.com","dueDate":"2026-06-01","labels":"api,backend","project":"Khaban Board","sprint":"Sprint 1","estimate":"3 pts","blocked":false}'
 ```
 
 To create a child ticket, include `parentId`:
@@ -111,7 +122,7 @@ To create a child ticket, include `parentId`:
 ```bash
 curl -X POST "YOUR_WEB_APP_URL" \
   -H "Content-Type: application/json" \
-  -d '{"title":"Child task","description":"Nested work item","status":"TODO","priority":"Medium","parentId":"PARENT_TASK_ID","owner":"Subho"}'
+  -d '{"sessionToken":"SESSION_TOKEN","title":"Child task","description":"Nested work item","status":"TODO","priority":"Medium","parentId":"PARENT_TASK_ID","owner":"Subho"}'
 ```
 
 ### Update task
@@ -119,7 +130,7 @@ curl -X POST "YOUR_WEB_APP_URL" \
 ```bash
 curl -X POST "YOUR_WEB_APP_URL" \
   -H "Content-Type: application/json" \
-  -d '{"_method":"PUT","id":"TASK_ID","status":"DONE","priority":"Medium"}'
+  -d '{"sessionToken":"SESSION_TOKEN","_method":"PUT","id":"TASK_ID","status":"DONE","priority":"Medium"}'
 ```
 
 ### Delete task
@@ -127,7 +138,7 @@ curl -X POST "YOUR_WEB_APP_URL" \
 ```bash
 curl -X POST "YOUR_WEB_APP_URL" \
   -H "Content-Type: application/json" \
-  -d '{"_method":"DELETE","id":"TASK_ID"}'
+  -d '{"sessionToken":"SESSION_TOKEN","_method":"DELETE","id":"TASK_ID"}'
 ```
 
 ## Email Due Date Reminders

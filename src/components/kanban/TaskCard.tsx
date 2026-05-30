@@ -9,11 +9,12 @@ type TaskCardProps = {
   task: Task;
   parentTitle?: string;
   childCount: number;
+  canEdit: boolean;
   onEdit: (task: Task) => void;
   onDelete: (id: string) => void;
 };
 
-export function TaskCard({ task, parentTitle, childCount, onEdit, onDelete }: TaskCardProps) {
+export function TaskCard({ task, parentTitle, childCount, canEdit, onEdit, onDelete }: TaskCardProps) {
   const [{ isDragging }, drag] = useDrag(
     () => ({
       type: DND_ITEM_TYPES.TASK,
@@ -27,15 +28,19 @@ export function TaskCard({ task, parentTitle, childCount, onEdit, onDelete }: Ta
 
   const setDragRef = useCallback(
     (node: HTMLElement | null) => {
-      drag(node);
+      if (canEdit) {
+        drag(node);
+      }
     },
-    [drag],
+    [canEdit, drag],
   );
 
   return (
     <article
       ref={setDragRef}
-      className={`group cursor-grab rounded-lg border border-white/10 bg-slate-950/72 p-4 shadow-lg shadow-black/15 transition duration-200 active:cursor-grabbing ${
+      className={`group rounded-lg border border-white/10 bg-slate-950/72 p-4 shadow-lg shadow-black/15 transition duration-200 ${
+        canEdit ? "cursor-grab active:cursor-grabbing" : ""
+      } ${
         isDragging
           ? "scale-[0.98] opacity-45 ring-2 ring-cyan-300/35"
           : "opacity-100 hover:-translate-y-0.5 hover:border-cyan-300/30"
@@ -46,7 +51,7 @@ export function TaskCard({ task, parentTitle, childCount, onEdit, onDelete }: Ta
           <h3 className="font-semibold leading-6 text-white">{task.title}</h3>
           <p className="mt-2 text-sm leading-6 text-slate-400">{task.description}</p>
         </div>
-        <div className="flex shrink-0 gap-1 opacity-100 sm:opacity-0 sm:transition sm:group-hover:opacity-100">
+        {canEdit ? <div className="flex shrink-0 gap-1 opacity-100 sm:opacity-0 sm:transition sm:group-hover:opacity-100">
           <button
             type="button"
             onClick={() => onEdit(task)}
@@ -63,7 +68,7 @@ export function TaskCard({ task, parentTitle, childCount, onEdit, onDelete }: Ta
           >
             <Trash2 size={15} />
           </button>
-        </div>
+        </div> : null}
       </div>
 
       <div className="mt-4 flex flex-wrap items-center gap-2">

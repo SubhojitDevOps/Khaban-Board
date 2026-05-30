@@ -7,6 +7,7 @@ import { Bell, Bot, Bug, Loader2, Plus, RefreshCw, TrendingUp, Users } from "luc
 import { KanbanColumn } from "@/components/kanban/KanbanColumn";
 import { TaskModal } from "@/components/kanban/TaskModal";
 import { AppShell } from "@/components/layout/AppShell";
+import { canCreateTasks, useAuth } from "@/components/auth/AuthProvider";
 import { columns } from "@/lib/tasks";
 import {
   createTask as apiCreateTask,
@@ -18,6 +19,8 @@ import {
 import type { Task, TaskDraft, TaskStatus } from "@/types/task";
 
 export function KanbanBoard() {
+  const { user } = useAuth();
+  const userCanEdit = user ? canCreateTasks(user.role) : false;
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -230,14 +233,14 @@ export function KanbanBoard() {
                   Manage sprint work, prioritize execution, and keep AI assistance close to every task.
                 </p>
               </div>
-              <button
+              {userCanEdit ? <button
                 type="button"
                 onClick={openCreateModal}
                 className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-cyan-300 px-4 py-3 text-sm font-semibold text-slate-950 transition hover:bg-cyan-200 md:w-auto"
               >
                 <Plus size={17} />
                 Create task
-              </button>
+              </button> : null}
             </div>
           </div>
 
@@ -351,6 +354,7 @@ export function KanbanBoard() {
                   accent={column.accent}
                   tasks={tasks.filter((task) => task.status === column.id)}
                   allTasks={tasks}
+                  canEdit={userCanEdit}
                   onMoveTask={moveTask}
                   onEdit={handleEdit}
                   onDelete={handleDelete}

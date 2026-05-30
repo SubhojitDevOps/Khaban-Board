@@ -18,7 +18,8 @@ import {
   Waypoints,
   X,
 } from "lucide-react";
-import { canAccess, canCreateTasks, useAuth, type DemoUser } from "@/components/auth/AuthProvider";
+import { canAccess, canCreateTasks, useAuth, type AuthUser } from "@/components/auth/AuthProvider";
+import { logoutUser } from "@/lib/api";
 
 type AppShellProps = {
   children: React.ReactNode;
@@ -41,10 +42,18 @@ export function AppShell({ children, onCreateTask }: AppShellProps) {
   const userCanCreate = user ? canCreateTasks(user.role) : false;
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
 
+  async function handleLogout() {
+    try {
+      await logoutUser();
+    } finally {
+      logout();
+    }
+  }
+
   return (
     <div className="min-h-screen bg-[#07080d] text-slate-100">
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 border-r border-white/10 bg-slate-950/85 p-4 backdrop-blur lg:block">
-        <SidebarContent pathname={pathname} onNavigate={() => undefined} logout={logout} user={user} />
+        <SidebarContent pathname={pathname} onNavigate={() => undefined} logout={handleLogout} user={user} />
       </aside>
 
       {isMobileNavOpen ? (
@@ -70,7 +79,7 @@ export function AppShell({ children, onCreateTask }: AppShellProps) {
             <SidebarContent
               pathname={pathname}
               onNavigate={() => setIsMobileNavOpen(false)}
-              logout={logout}
+              logout={handleLogout}
               user={user}
               isMobile
             />
@@ -145,8 +154,8 @@ function SidebarContent({
 }: {
   pathname: string;
   onNavigate: () => void;
-  logout: () => void;
-  user: DemoUser | null;
+  logout: () => void | Promise<void>;
+  user: AuthUser | null;
   isMobile?: boolean;
 }) {
   return (
@@ -189,7 +198,7 @@ function SidebarContent({
           AI sprint brief
         </div>
         <p className="mt-2 text-sm leading-6 text-slate-400">
-          {user?.name || "Demo User"} · {user?.role || "Member"}
+          {user?.name || "Workspace user"} | {user?.role || "Member"}
         </p>
         <button
           type="button"

@@ -4,25 +4,26 @@ import { createContext, useContext, useEffect, useMemo, useState } from "react";
 
 export type UserRole = "Admin" | "Manager" | "Member" | "Viewer";
 
-export type DemoUser = {
+export type AuthUser = {
   name: string;
   email: string;
   role: UserRole;
+  sessionToken: string;
 };
 
 type AuthContextValue = {
-  user: DemoUser | null;
+  user: AuthUser | null;
   isReady: boolean;
-  login: (user: DemoUser) => void;
-  updateUser: (user: DemoUser) => void;
+  login: (user: AuthUser) => void;
+  updateUser: (user: AuthUser) => void;
   logout: () => void;
 };
 
-const AUTH_STORAGE_KEY = "khaban-board-user";
+export const AUTH_STORAGE_KEY = "khaban-board-user";
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<DemoUser | null>(null);
+  const [user, setUser] = useState<AuthUser | null>(null);
   const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
@@ -30,7 +31,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const storedUser = window.localStorage.getItem(AUTH_STORAGE_KEY);
 
       if (storedUser) {
-        setUser(JSON.parse(storedUser) as DemoUser);
+        setUser(JSON.parse(storedUser) as AuthUser);
       }
 
       setIsReady(true);

@@ -29,7 +29,7 @@ export function ProtectedRoute({ href, children }: { href: string; children: Rea
           <Lock className="mx-auto text-amber-200" size={32} />
           <h1 className="mt-4 text-2xl font-semibold">Role access required</h1>
           <p className="mt-3 leading-7 text-slate-400">
-            Your current role does not have access to this module. Switch to Admin or Manager in the demo login to explore it.
+            Your current role does not have access to this module. Contact a workspace administrator if you need additional permissions.
           </p>
         </section>
       </main>
