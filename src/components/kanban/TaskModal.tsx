@@ -17,6 +17,7 @@ const emptyTask: TaskDraft = {
   title: "",
   description: "",
   owner: "",
+  ownerEmail: "",
   priority: "Medium",
   status: "TODO",
   parentId: "",
@@ -49,6 +50,7 @@ export function TaskModal({ task, tasks, onClose, onSave, isSaving = false }: Ta
       description: form.description.trim(),
       parentId: form.parentId || "",
       owner: form.owner?.trim() || "Unassigned",
+      ownerEmail: form.ownerEmail?.trim() || "",
       dueDate: form.dueDate?.trim() || "",
       aiHint: form.aiHint?.trim() || "Ask AI to turn this into the next best action.",
       labels: form.labels?.trim() || "",
@@ -70,11 +72,14 @@ export function TaskModal({ task, tasks, onClose, onSave, isSaving = false }: Ta
 
   return (
     <div className="fixed inset-0 z-50 grid place-items-end bg-black/70 p-0 sm:place-items-center sm:p-5">
-      <form onSubmit={handleSubmit} className="w-full rounded-t-lg border border-white/10 bg-slate-950 p-5 shadow-2xl sm:max-w-xl sm:rounded-lg">
-        <div className="mb-5 flex items-center justify-between">
+      <form
+        onSubmit={handleSubmit}
+        className="max-h-[92vh] w-full overflow-y-auto rounded-t-lg border border-white/10 bg-slate-950 p-4 shadow-2xl sm:max-w-xl sm:rounded-lg sm:p-5"
+      >
+        <div className="mb-5 flex items-start justify-between gap-4">
           <div>
             <p className="text-sm text-cyan-200">{task ? "Edit task" : "Create task"}</p>
-            <h2 className="text-2xl font-semibold">{task ? "Update board card" : "Add sprint work"}</h2>
+            <h2 className="text-xl font-semibold sm:text-2xl">{task ? "Update board card" : "Add sprint work"}</h2>
           </div>
           <button type="button" onClick={onClose} disabled={isSaving} className="grid size-9 place-items-center rounded-lg border border-white/10 text-slate-300 disabled:opacity-50">
             <X size={18} />
@@ -176,12 +181,35 @@ export function TaskModal({ task, tasks, onClose, onSave, isSaving = false }: Ta
               />
             </label>
             <label className="grid gap-2 text-sm font-medium text-slate-300">
+              Owner email
+              <input
+                type="email"
+                value={form.ownerEmail || ""}
+                onChange={(event) => updateField("ownerEmail", event.target.value)}
+                className="rounded-lg border border-white/10 bg-white/[0.04] px-3 py-3 text-slate-100 outline-none transition focus:border-cyan-300/50"
+                placeholder="owner@example.com"
+              />
+            </label>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <label className="grid gap-2 text-sm font-medium text-slate-300">
               Due
               <input
+                type="date"
                 value={form.dueDate}
                 onChange={(event) => updateField("dueDate", event.target.value)}
                 className="rounded-lg border border-white/10 bg-white/[0.04] px-3 py-3 text-slate-100 outline-none transition focus:border-cyan-300/50"
-                placeholder="Friday"
+              />
+            </label>
+            <label className="grid gap-2 text-sm font-medium text-slate-300">
+              Created by email
+              <input
+                type="email"
+                value={form.createdBy || ""}
+                onChange={(event) => updateField("createdBy", event.target.value)}
+                className="rounded-lg border border-white/10 bg-white/[0.04] px-3 py-3 text-slate-100 outline-none transition focus:border-cyan-300/50"
+                placeholder="creator@example.com"
               />
             </label>
           </div>
@@ -242,11 +270,11 @@ export function TaskModal({ task, tasks, onClose, onSave, isSaving = false }: Ta
           </label>
         </div>
 
-        <div className="mt-6 flex justify-end gap-3">
-          <button type="button" onClick={onClose} disabled={isSaving} className="rounded-lg border border-white/10 px-4 py-2.5 text-sm font-semibold text-slate-300 disabled:opacity-50">
+        <div className="sticky bottom-0 -mx-4 mt-6 flex justify-end gap-3 border-t border-white/10 bg-slate-950/95 px-4 pt-4 sm:static sm:mx-0 sm:border-t-0 sm:bg-transparent sm:px-0 sm:pt-0">
+          <button type="button" onClick={onClose} disabled={isSaving} className="flex-1 rounded-lg border border-white/10 px-4 py-2.5 text-sm font-semibold text-slate-300 disabled:opacity-50 sm:flex-none">
             Cancel
           </button>
-          <button type="submit" disabled={isSaving} className="rounded-lg bg-cyan-300 px-4 py-2.5 text-sm font-semibold text-slate-950 hover:bg-cyan-200 disabled:cursor-wait disabled:opacity-70">
+          <button type="submit" disabled={isSaving} className="flex-1 rounded-lg bg-cyan-300 px-4 py-2.5 text-sm font-semibold text-slate-950 hover:bg-cyan-200 disabled:cursor-wait disabled:opacity-70 sm:flex-none">
             {isSaving ? "Saving..." : "Save task"}
           </button>
         </div>

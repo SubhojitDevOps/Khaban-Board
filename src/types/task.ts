@@ -12,6 +12,7 @@ export type Task = {
   updatedAt: string;
   parentId?: string;
   owner?: string;
+  ownerEmail?: string;
   dueDate?: string;
   aiHint?: string;
   labels?: string;
@@ -31,6 +32,7 @@ export type TaskDraft = {
   priority: TaskPriority;
   parentId?: string;
   owner?: string;
+  ownerEmail?: string;
   dueDate?: string;
   aiHint?: string;
   labels?: string;

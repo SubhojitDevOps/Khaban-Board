@@ -216,7 +216,7 @@ export function KanbanBoard() {
   return (
     <DndProvider backend={HTML5Backend}>
       <AppShell onCreateTask={openCreateModal}>
-        <main className="px-4 py-6 sm:px-6 lg:px-8">
+        <main className="px-3 py-5 sm:px-6 lg:px-8">
         <section className="mb-6 grid gap-4 xl:grid-cols-[1fr_360px]">
           <div className="rounded-lg border border-white/10 bg-white/[0.04] p-5 sm:p-6">
             <p className="mb-3 inline-flex items-center gap-2 rounded-lg border border-cyan-300/20 bg-cyan-300/10 px-3 py-1 text-sm text-cyan-100">
@@ -225,7 +225,7 @@ export function KanbanBoard() {
             </p>
             <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
               <div>
-                <h1 className="text-3xl font-semibold tracking-normal text-white sm:text-4xl">Dashboard</h1>
+                <h1 className="text-2xl font-semibold tracking-normal text-white sm:text-4xl">Dashboard</h1>
                 <p className="mt-3 max-w-2xl leading-7 text-slate-400">
                   Manage sprint work, prioritize execution, and keep AI assistance close to every task.
                 </p>
@@ -241,7 +241,7 @@ export function KanbanBoard() {
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-3 rounded-lg border border-white/10 bg-slate-950 p-4">
+          <div className="grid grid-cols-1 gap-3 rounded-lg border border-white/10 bg-slate-950 p-4 sm:grid-cols-3">
             {metrics.map((metric) => (
               <div key={metric.label} className="rounded-lg border border-white/10 bg-white/[0.04] p-3">
                 <p className="text-2xl font-semibold">{metric.value}</p>
@@ -287,7 +287,7 @@ export function KanbanBoard() {
           ) : null}
 
           {!isLoading ? (
-            <section className="mb-5 grid gap-4 xl:grid-cols-4">
+            <section className="mb-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
               <article className="rounded-lg border border-white/10 bg-white/[0.04] p-4">
                 <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-200">
                   <Bug size={16} className="text-rose-200" />

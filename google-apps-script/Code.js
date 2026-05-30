@@ -19,6 +19,9 @@ const HEADERS = [
   "blockerReason",
   "createdBy",
   "updatedBy",
+  "ownerEmail",
+  "lastReminderAt",
+  "reminderCount",
 ];
 const VALID_STATUSES = ["TODO", "IN_PROGRESS", "DONE"];
 const VALID_PRIORITIES = ["Low", "Medium", "High", "Urgent"];
@@ -133,6 +136,9 @@ function createTask(payload) {
     blockerReason: normalizeText(payload.blockerReason),
     createdBy: normalizeText(payload.createdBy),
     updatedBy: normalizeText(payload.updatedBy || payload.createdBy),
+    ownerEmail: normalizeEmail(payload.ownerEmail),
+    lastReminderAt: "",
+    reminderCount: 0,
   };
 
   const sheet = getSheet();
@@ -167,6 +173,9 @@ function updateTask(id, payload) {
     blockerReason: payload.blockerReason === undefined ? existing.blockerReason : normalizeText(payload.blockerReason),
     createdBy: existing.createdBy || normalizeText(payload.createdBy),
     updatedBy: normalizeText(payload.updatedBy || payload.owner || existing.updatedBy),
+    ownerEmail: payload.ownerEmail === undefined ? existing.ownerEmail : normalizeEmail(payload.ownerEmail),
+    lastReminderAt: existing.lastReminderAt || "",
+    reminderCount: existing.reminderCount || 0,
     updatedAt: new Date().toISOString(),
   };
 
@@ -185,6 +194,108 @@ function deleteTask(id) {
 
   sheet.deleteRow(rowIndex);
   return true;
+}
+
+function sendDueTaskReminders() {
+  const tasks = listTasks();
+  const now = new Date();
+  const dueTasks = tasks.filter(task => shouldSendReminder(task, now));
+  const sent = [];
+
+  dueTasks.forEach(task => {
+    const recipient = task.ownerEmail || task.createdBy;
+
+    if (!recipient) {
+      return;
+    }
+
+    MailApp.sendEmail({
+      to: recipient,
+      subject: `[Khaban Board] Pending task due: ${task.title}`,
+      htmlBody: buildReminderEmail(task),
+    });
+
+    markReminderSent(task.id);
+    sent.push({ id: task.id, title: task.title, to: recipient });
+  });
+
+  return jsonResponse({ ok: true, data: { sent, count: sent.length } });
+}
+
+function installDailyReminderTrigger() {
+  ScriptApp.getProjectTriggers()
+    .filter(trigger => trigger.getHandlerFunction() === "sendDueTaskReminders")
+    .forEach(trigger => ScriptApp.deleteTrigger(trigger));
+
+  ScriptApp.newTrigger("sendDueTaskReminders")
+    .timeBased()
+    .everyDays(1)
+    .atHour(9)
+    .create();
+
+  return jsonResponse({ ok: true, data: { trigger: "sendDueTaskReminders", frequency: "daily", hour: 9 } });
+}
+
+function shouldSendReminder(task, now) {
+  if (!task || task.status === "DONE") {
+    return false;
+  }
+
+  if (!task.dueDate || (!task.ownerEmail && !task.createdBy)) {
+    return false;
+  }
+
+  const dueDate = parseDueDate(task.dueDate);
+
+  if (!dueDate || dueDate > endOfDay(now)) {
+    return false;
+  }
+
+  if (!task.lastReminderAt) {
+    return true;
+  }
+
+  const lastReminder = new Date(task.lastReminderAt);
+  return !isSameDay(lastReminder, now);
+}
+
+function markReminderSent(taskId) {
+  const sheet = getSheet();
+  const rowIndex = findRowIndexById(sheet, taskId);
+
+  if (rowIndex === -1) {
+    return;
+  }
+
+  const existing = rowToTask(sheet.getRange(rowIndex, 1, 1, HEADERS.length).getValues()[0]);
+  const updated = {
+    ...existing,
+    lastReminderAt: new Date().toISOString(),
+    reminderCount: Number(existing.reminderCount || 0) + 1,
+    updatedAt: new Date().toISOString(),
+  };
+
+  sheet.getRange(rowIndex, 1, 1, HEADERS.length).setValues([taskToRow(updated)]);
+}
+
+function buildReminderEmail(task) {
+  const dueText = task.dueDate || "Due date not set";
+  const ownerText = task.owner || "Unassigned";
+
+  return `
+    <div style="font-family:Arial,sans-serif;line-height:1.6;color:#111827">
+      <h2>Khaban Board reminder</h2>
+      <p>This task is still pending and its due date has arrived or passed.</p>
+      <table cellpadding="6" cellspacing="0" style="border-collapse:collapse">
+        <tr><td><b>Task</b></td><td>${escapeHtml(task.title)}</td></tr>
+        <tr><td><b>Status</b></td><td>${escapeHtml(task.status)}</td></tr>
+        <tr><td><b>Priority</b></td><td>${escapeHtml(task.priority)}</td></tr>
+        <tr><td><b>Owner</b></td><td>${escapeHtml(ownerText)}</td></tr>
+        <tr><td><b>Due</b></td><td>${escapeHtml(dueText)}</td></tr>
+      </table>
+      <p>${escapeHtml(task.description || "")}</p>
+    </div>
+  `;
 }
 
 function getSheet() {
@@ -302,12 +413,58 @@ function normalizeText(value) {
   return String(value || "").trim();
 }
 
+function normalizeEmail(value) {
+  const email = normalizeText(value);
+
+  if (!email) {
+    return "";
+  }
+
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    throw new Error("Invalid ownerEmail");
+  }
+
+  return email;
+}
+
 function normalizeBoolean(value) {
   if (typeof value === "boolean") {
     return value;
   }
 
   return String(value || "").toLowerCase() === "true";
+}
+
+function parseDueDate(value) {
+  const text = normalizeText(value);
+
+  if (!text) {
+    return null;
+  }
+
+  const parsed = new Date(text);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function endOfDay(date) {
+  const value = new Date(date);
+  value.setHours(23, 59, 59, 999);
+  return value;
+}
+
+function isSameDay(left, right) {
+  return left.getFullYear() === right.getFullYear()
+    && left.getMonth() === right.getMonth()
+    && left.getDate() === right.getDate();
+}
+
+function escapeHtml(value) {
+  return String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
 }
 
 function jsonResponse(body, statusCode) {

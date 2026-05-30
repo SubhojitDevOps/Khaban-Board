@@ -9,7 +9,7 @@ Sheet name: `Tasks`
 Columns:
 
 ```text
-id, title, description, status, priority, createdAt, updatedAt, parentId, owner, dueDate, aiHint, labels, project, sprint, estimate, blocked, blockerReason, createdBy, updatedBy
+id, title, description, status, priority, createdAt, updatedAt, parentId, owner, dueDate, aiHint, labels, project, sprint, estimate, blocked, blockerReason, createdBy, updatedBy, ownerEmail, lastReminderAt, reminderCount
 ```
 
 Allowed statuses:
@@ -61,7 +61,7 @@ curl "YOUR_WEB_APP_URL?id=TASK_ID"
 ```bash
 curl -X POST "YOUR_WEB_APP_URL" \
   -H "Content-Type: application/json" \
-  -d '{"title":"Build API","description":"Create Sheets backend","status":"TODO","priority":"High","owner":"Subho","dueDate":"2026-06-01","labels":"api,backend","project":"Khaban MVP","sprint":"Sprint 1","estimate":"3 pts","blocked":false}'
+  -d '{"title":"Build API","description":"Create Sheets backend","status":"TODO","priority":"High","owner":"Subho","ownerEmail":"subho@example.com","dueDate":"2026-06-01","labels":"api,backend","project":"Khaban MVP","sprint":"Sprint 1","estimate":"3 pts","blocked":false}'
 ```
 
 To create a child ticket, include `parentId`:
@@ -86,6 +86,43 @@ curl -X POST "YOUR_WEB_APP_URL" \
 curl -X POST "YOUR_WEB_APP_URL" \
   -H "Content-Type: application/json" \
   -d '{"_method":"DELETE","id":"TASK_ID"}'
+```
+
+## Email Due Date Reminders
+
+The backend can email task owners when a task is pending and the due date has arrived or passed.
+
+Required fields:
+
+```text
+status != DONE
+dueDate = YYYY-MM-DD
+ownerEmail = recipient email
+```
+
+Fallback recipient:
+
+```text
+createdBy
+```
+
+Manual test from Apps Script editor:
+
+```text
+sendDueTaskReminders
+```
+
+Install daily trigger:
+
+```text
+installDailyReminderTrigger
+```
+
+This creates a daily trigger at 9 AM in the script timezone. The script sends at most one reminder per task per day using:
+
+```text
+lastReminderAt
+reminderCount
 ```
 
 ## Response Shape

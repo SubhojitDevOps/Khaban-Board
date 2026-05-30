@@ -26,6 +26,7 @@ export async function createTask(task: TaskDraft) {
     priority: task.priority,
     parentId: task.parentId || "",
     owner: task.owner || "",
+    ownerEmail: task.ownerEmail || "",
     dueDate: task.dueDate || "",
     aiHint: task.aiHint || "",
     labels: task.labels || "",
